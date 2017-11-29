@@ -1,4 +1,6 @@
 using System.Collections.Generic;
+using FakeItEasy;
+using FluentAssertions;
 using NUnit.Framework;
 
 namespace MockFramework
@@ -43,11 +45,59 @@ namespace MockFramework
 		[SetUp]
 		public void SetUp()
 		{
-			//thingService = A...
+		    thingService = A.Fake<IThingService>();
+		    A.CallTo(() => thingService.TryRead(thingId1, out thing1)).Returns(true);
+		    A.CallTo(() => thingService.TryRead(thingId2, out thing2)).Returns(true);
 			thingCache = new ThingCache(thingService);
 		}
 
 		//TODO: написать простейший тест, а затем все остальные
-		//Live Template tt работает!
+	    [TestCase(thingId1)]
+	    [TestCase(thingId2)]
+	    public void ThingTest(string thingId)
+	    {
+	        thingCache.Get(thingId).ShouldBeEquivalentTo(new Thing(thingId));
+	    }
+
+	    [TestCase(thingId1)]
+        [TestCase(thingId2)]
+        public void ThingTest2(string thingId)
+	    {
+	        Thing thing;
+	        thingCache.Get(thingId);
+	        thingCache.Get(thingId);
+	        A.CallTo(() => thingService.TryRead(thingId, out thing)).MustHaveHappened(Repeated.Exactly.Once);
+	    }
+
+	    [Test]
+	    public void NotForgetFirstThing_AfterAddingSecond()
+	    {
+	        thingCache.Get(thingId1);
+	        thingCache.Get(thingId2);
+	        thingCache.Get(thingId1);
+	        A.CallTo(() => thingService.TryRead(thingId1, out thing1)).MustHaveHappened(Repeated.Exactly.Times(1));
+	    }
+
+	    [Test]
+	    public void CashCorrectValue_AfterAddingSecond()
+	    {
+	        thingCache.Get(thingId1);
+	        thingCache.Get(thingId2);
+	        thingCache.Get(thingId1).ShouldBeEquivalentTo(thing1);
+	    }
+
+        [Test]
+	    public void NullResult()
+	    {
+	        thingCache.Get("rt").ShouldBeEquivalentTo(null);
+	    }
+
+	    [Test]
+	    public void CallService_WhenGivenNonCashedValue()
+	    {
+	        Thing thing;
+	        thingCache.Get("rt");
+	        A.CallTo(() => thingService.TryRead("rt", out thing)).MustHaveHappened(Repeated.Exactly.Once);
+	    }
 	}
 }
